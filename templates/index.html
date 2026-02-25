@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Code Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #007acc;
+            color: white;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        textarea {
+            background-color: #252526;
+            color: #d4d4d4;
+            border: 1px solid #3e3e42;
+            padding: 10px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 100px;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: #007acc;
+        }
+
+        button {
+            background-color: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            align-self: flex-start;
+        }
+
+        button:hover {
+            background-color: #1177bb;
+        }
+
+        button:disabled {
+            background-color: #4d4d4d;
+            cursor: not-allowed;
+        }
+
+        .output-container {
+            flex: 1;
+            background-color: #1e1e1e;
+            border: 1px solid #3e3e42;
+            padding: 15px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Consolas', 'Courier New', monospace;
+            position: relative;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background-color: #d4d4d4;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Simple Syntax Highlighting (Basic) */
+        .keyword {
+            color: #569cd6;
+        }
+
+        /* def, return, if */
+        .string {
+            color: #ce9178;
+        }
+
+        /* "string" */
+        .comment {
+            color: #6a9955;
+        }
+
+        /* # comment */
+        .function {
+            color: #dcdcaa;
+        }
+
+        /* function_name */
+    </style>
+</head>
+
+<body>
+    <header>
+        <span>Offline Code Generator (CodeLlama-7B)</span>
+    </header>
+    <div class="container">
+        <div class="input-group">
+            <textarea id="promptInput"
+                placeholder="Describe the code you want to generate... (e.g., 'Write a binary search in Python')"></textarea>
+            <button id="generateBtn" onclick="generateCode()">Generate Code</button>
+        </div>
+        <div class="output-container" id="outputArea">
+            <span id="outputText"></span><span class="cursor" id="cursor" style="display: none;"></span>
+        </div>
+    </div>
+
+    <script>
+        async function generateCode() {
+            const prompt = document.getElementById('promptInput').value;
+            const outputText = document.getElementById('outputText');
+            const cursor = document.getElementById('cursor');
+            const btn = document.getElementById('generateBtn');
+
+            if (!prompt.trim()) return;
+
+            // Reset UI
+            outputText.textContent = "";
+            cursor.style.display = "inline-block";
+            btn.disabled = true;
+            btn.innerText = "Generating...";
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    outputText.textContent += chunk;
+                    // Auto-scroll
+                    const container = document.getElementById('outputArea');
+                    container.scrollTop = container.scrollHeight;
+                }
+
+            } catch (error) {
+                outputText.textContent += "\nError generating code: " + error;
+            } finally {
+                cursor.style.display = "none";
+                btn.disabled = false;
+                btn.innerText = "Generate Code";
+            }
+        }
+    </script>
+</body>
+
+</html>
