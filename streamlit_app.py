@@ -70,33 +70,24 @@ with st.sidebar:
     # Initialize a temporary generator to check mode
     temp_gen = load_model()
     
-    if temp_gen.mode == "local":
-        st.success("🟢 Operating in **Local GPU Mode**")
-        st.markdown("This app uses a locally downloaded **CodeLlama-7B** model via the `llama.cpp` AMD Vulkan engine.")
-        st.markdown("Responses are generated completely offline. Enjoy fast, private code generation!")
-    else:
-        st.warning("☁️ Operating in **Cloud Mode**")
-        st.markdown("Local AI model was not found. The app has automatically fallen back to using the Gemini Cloud API.")
-        
+    if temp_gen.mode == "cloud":
         # Look for secret first, otherwise ask user
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
+            st.warning("⚠️ API Key Required")
             api_key = st.text_input("Enter your Gemini API Key:", type="password")
             if not api_key:
-                st.info("You must provide an API key to use the cloud fallback.")
+                st.info("You must provide an API key to use the cloud code generator.")
             else:
                 st.session_state.gemini_key = api_key
-        else:
-            st.success("API Key loaded from environment secrets.")
+            st.markdown("---")
             
-    st.markdown("---")
-    
     if st.button("Clear Conversation"):
         st.session_state.messages = []
         st.rerun()
 
-st.title("💻 Hybrid Code Generator")
-st.markdown("Ask the AI below to generate practically any code. Runs offline where possible!")
+st.title("💻 Code Generator")
+st.markdown("Ask the AI below to generate practically any code.")
 
 # Re-Initialize the model with the active key
 active_api_key = st.session_state.get("gemini_key", os.environ.get("GEMINI_API_KEY"))
