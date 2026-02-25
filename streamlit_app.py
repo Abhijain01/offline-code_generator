@@ -54,37 +54,53 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_resource(show_spinner="Loading CodeLlama Model into memory... This may take a moment.")
-def load_model():
+@st.cache_resource(show_spinner="Loading Engine... This may take a moment.")
+def load_model(api_key=None):
     models_dir = os.path.join(os.path.dirname(__file__), 'models')
     files = glob.glob(os.path.join(models_dir, "*.gguf"))
-    if not files:
-        return None
+    model_path = files[0] if files else "missing_model.gguf"
     
-    model_path = files[0]
-    return CodeGenerator(model_path)
+    return CodeGenerator(model_path, api_key=api_key)
 
 # Sidebar
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/8112/8112678.png", width=100)
     st.title("Settings")
+    
+    # Initialize a temporary generator to check mode
+    temp_gen = load_model()
+    
+    if temp_gen.mode == "local":
+        st.success("🟢 Operating in **Local GPU Mode**")
+        st.markdown("This app uses a locally downloaded **CodeLlama-7B** model via the `llama.cpp` AMD Vulkan engine.")
+        st.markdown("Responses are generated completely offline. Enjoy fast, private code generation!")
+    else:
+        st.warning("☁️ Operating in **Cloud Mode**")
+        st.markdown("Local AI model was not found. The app has automatically fallen back to using the Gemini Cloud API.")
+        
+        # Look for secret first, otherwise ask user
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            api_key = st.text_input("Enter your Gemini API Key:", type="password")
+            if not api_key:
+                st.info("You must provide an API key to use the cloud fallback.")
+            else:
+                st.session_state.gemini_key = api_key
+        else:
+            st.success("API Key loaded from environment secrets.")
+            
     st.markdown("---")
-    st.markdown("This app uses a locally downloaded **CodeLlama-7B** model via the `ctransformers` inference engine.")
-    st.markdown("Responses are generated completely offline. Enjoy fast, private code generation!")
     
     if st.button("Clear Conversation"):
         st.session_state.messages = []
         st.rerun()
 
-st.title("💻 Offline Code Generator")
-st.markdown("Ask the AI below to generate practically any code, completely offline!")
+st.title("💻 Hybrid Code Generator")
+st.markdown("Ask the AI below to generate practically any code. Runs offline where possible!")
 
-# Initialize the model
-generator = load_model()
-
-if not generator:
-    st.error("No model found! Please ensure you have run `python model_downloader.py` first.")
-    st.stop()
+# Re-Initialize the model with the active key
+active_api_key = st.session_state.get("gemini_key", os.environ.get("GEMINI_API_KEY"))
+generator = load_model(api_key=active_api_key)
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -114,7 +130,7 @@ if prompt := st.chat_input("Ask me to write some code... (e.g., 'Write a Python 
         
         # We need to collect the stream chunks
         try:
-            stream = generator.generate_response(prompt)
+            stream = generator.generate_response(prompt, api_key=active_api_key)
             for chunk in stream:
                 # Clean up known token artifacts based on engine.py's implementation
                 clean_chunk = chunk.replace('Ġ', ' ').replace('Ċ', '\n').replace('<|im_end|>', '')
